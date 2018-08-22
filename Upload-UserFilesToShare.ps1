@@ -21,7 +21,7 @@ This is the path of the network share that will host the files.
 Andy Morales
 #>
 
-$RootShare = '\\SERVER\RDSProfileMigration'
+$RootShare = '\\SERVER\TSProfileMigration'
 
 
 #Create user folder on the share
