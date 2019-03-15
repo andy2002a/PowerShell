@@ -10,6 +10,7 @@ The script needs Remove-LocalUPDProfiles.ps1 to work correctly.
 .PARAMETER ScheduledTaskName
 This is the name that will be given to the ScheduledTask
 
+Andy Morales
 #>
 
 
