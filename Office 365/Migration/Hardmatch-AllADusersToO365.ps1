@@ -10,6 +10,8 @@
 
 .PARAMETER SkipLogin
 
+https://gallery.technet.microsoft.com/scriptcenter/Convert-between-Immutable-e1e96aa9
+
 Andy Morales
 #>
 
