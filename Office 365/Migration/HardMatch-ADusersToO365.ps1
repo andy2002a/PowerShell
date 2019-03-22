@@ -6,6 +6,8 @@ This is intended to help when hard matching AD users with Azure AD
 .NOTES
 Use SkipLogin if you have run the script before on the same session
 
+https://gallery.technet.microsoft.com/scriptcenter/Convert-between-Immutable-e1e96aa9
+
 Andy Morales
 #>
 
