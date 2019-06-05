@@ -7,12 +7,12 @@ All users will be logged out of the computer. The goal is to allow applications 
 #https://blog.ipswitch.com/how-to-log-off-windows-users-remotely-with-powershell
 #https://blogs.msdn.microsoft.com/kenobonn/2014/03/29/create-event-log-sources-using-powershell/
 
-$EventLogSourceName = 'WDRebootScript'
+$EventLogSourceName = 'RebootScript'
 
 #set error action to stop so that we can use try/catch on cmd commands
 $ErrorActionPreference = 'Stop'
 
-#Create WDScripts Event Log source if it does not exist
+#Create RebootScript Event Log source if it does not exist
 if ([System.Diagnostics.EventLog]::SourceExists("$EventLogSourceName") -eq $false) {
     [System.Diagnostics.EventLog]::CreateEventSource("$EventLogSourceName", 'System')
 }
