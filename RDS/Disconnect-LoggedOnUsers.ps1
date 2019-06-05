@@ -3,10 +3,11 @@ This script is intended to be used before a reboot script, although it could be 
 
 All users will be logged out of the computer. The goal is to allow applications to close on their own without being force closed.
 
+https://blog.ipswitch.com/how-to-log-off-windows-users-remotely-with-powershell
+https://blogs.msdn.microsoft.com/kenobonn/2014/03/29/create-event-log-sources-using-powershell/
+
 Andy Morales
 #>
-#https://blog.ipswitch.com/how-to-log-off-windows-users-remotely-with-powershell
-#https://blogs.msdn.microsoft.com/kenobonn/2014/03/29/create-event-log-sources-using-powershell/
 
 $EventLogSourceName = 'RebootScript'
 
