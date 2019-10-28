@@ -1,11 +1,12 @@
 <#
-
 .SYNOPSIS
 This script copies all of the folders under $LocationsToCopy to a network location. Those files will later be moved into the user's profile using another script.
 
 Network paths(in the case of redirected AppData) can also be copied over to a share.
 
 Various regsitry keys are also copied over to a share.
+
+The script will only copy data from one server. This is intended to reduce data corruption in the event that users are load balanced in non persistent environments(including Roaming profiles). To remove this comment out the CheckForPreviousRun region.
 
 .NOTES
 This should be set as a user login script with deny GPO read permission applied to the new RDS servers. See: https://i.imgur.com/X6gtv7v.png
@@ -15,39 +16,71 @@ This will allow users to create their own folder while keeping their files secur
 
 Additional reg keys can be copied over by adding items to the $UserRegKeys array.
 
+The robocopy command is set to use 127 threads. This causes incorrect logging, and in some cases can saturdate the network link. Remove /MT:127 to resolve this.
+
 .PARAMETER RootShare
 This is the path of the network share that will host the files.
 
 Andy Morales
 #>
 
-$RootShare = '\\SERVER\TSProfileMigration'
-
+$RootShare = '\\SERVER\RDSProfileMigration'
 
 #Create user folder on the share
 $UserShare = $RootShare + '\' + $env:UserName
+
+#Comment the block below if you are moving users out of UPDs.
+
+#Region CheckForPreviousRun
+#Check to see if the script has ran before
+if (Test-Path "$UserShare\hasran.txt") {
+    #Exit the script if it is running from a computer other than the original
+    if ((Get-Content -Path "$UserShare\hasran.txt") -ne $env:COMPUTERNAME) {
+        exit
+    }
+}
+#endregion CheckForPreviousRun
+
 New-item -Path $UserShare -ItemType Directory -Force
 
 $PowerShellLogPath = "$usershare\powerShellExportLog.txt"
 
 #region CopyFiles
 $LocationsToCopy = @(
-    "AppData\Roaming\Microsoft\Signatures",
-    "AppData\Roaming\Microsoft\Templates",
-    "AppData\Roaming\Mozilla\Firefox",
-    "AppData\Local\Google\Chrome\User Data",
-    "AppData\Local\Microsoft\office",
-    "AppData\Roaming\Microsoft\UProof",
-    "AppData\Roaming\Microsoft\Office",
-    "AppData\Roaming\Microsoft\Windows\Themes",
-    "AppData\Roaming\Microsoft\Windows\Recent"
-
+    #'Desktop',
+    #'Links',
+    #'Favorites',
+    #'Downloads',
+    #'Pictures',
+    #'Videos',
+    '.vscode',
+    'AppData\Local\Google\Chrome\User Data',
+    'AppData\Local\Microsoft\office',
+    'AppData\Roaming\Microsoft\Signatures',
+    'AppData\Roaming\Microsoft\Templates',
+    'AppData\Roaming\Mozilla\Firefox',
+    'AppData\Roaming\Microsoft\Proof',
+    'AppData\Roaming\Microsoft\UProof',
+    'AppData\Roaming\Microsoft\Office',
+    'AppData\Roaming\Microsoft\Outlook'
+    'AppData\Roaming\Microsoft\Windows\Themes',
+    'AppData\Roaming\Microsoft\Windows\Recent',
+    'AppData\Roaming\Microsoft\Windows\Cookies',
+    'AppData\Roaming\Microsoft\Windows\INetCookies',
+    'AppData\Roaming\Corel',
+    'AppData\Roaming\Cisco\Unified Communications',
+    'AppData\Roaming\VMware',
+    'AppData\Roaming\Code',
+    'AppData\Roaming\Greenshot',
+    'AppData\Roaming\PowerShell Pro Tools',
+    #If chrome data has been moved into FSL
+    'AppData\Local\Microsoft\Outlook\ChromeData'
 )
 
 foreach ($Location in $LocationsToCopy) {
     try {
-        ROBOCOPY "$env:userprofile\$Location" "$Rootshare\$env:UserName\$Location" /R:0 /W:0 /E /xo /COPY:DATSO /dcopy:t /XD 'System Volume Information' '*cache*' '$RECYCLE.BIN' 'IndexedDB' /XF '*.TMP' '*.temp' '*.localstorage' /np /purge /log+:"$usershare\roboCopyExportLog.txt"
-        #IndexedDB, '*cache*', and '*.localstorage'are intended to reduce the amount of chrome data
+        ROBOCOPY "$env:userprofile\$Location" "$Rootshare\$env:UserName\$Location" /R:0 /W:0 /E /xo /COPY:DATSO /MT:127 /dcopy:t /XD 'System Volume Information' '*cache*' '$RECYCLE.BIN' 'IndexedDB' /XF '*.TMP' '*.temp' '*.localstorage' '*.OST' /np /purge /log+:"$usershare\roboCopyExportLog.txt"
+        #IndexedDB, '*cache*', and '*.localstorage' are intended to reduce the amount of chrome data
     }
     catch {
         Add-Content -Path "$PowerShellLogPath" -Value "Errory copying C:\Users\$Location to $Rootshare\$Location"
@@ -69,7 +102,7 @@ $NetworkLocations =@(
 
 foreach ($location in $NetworkLocations){
 	try {
-        ROBOCOPY "\\FileServer\rprofiles$\$env:UserName\$Location" "$Rootshare\$env:UserName\$Location" /R:0 /W:0 /E /xo /COPY:DATSO /dcopy:t /XD 'System Volume Information' '*cache*' '$RECYCLE.BIN' 'IndexedDB' /XF '*.TMP' '*.temp' /np /purge /log+:"$usershare\roboCopyExportLog.txt"
+        ROBOCOPY "\\SERVER\rprofiles$\$env:UserName\$Location" "$Rootshare\$env:UserName\$Location" /R:0 /W:0 /E /xo /COPY:DATSO /dcopy:t /XD 'System Volume Information' '*cache*' '$RECYCLE.BIN' 'IndexedDB' /XF '*.TMP' '*.temp' /np /purge /log+:"$usershare\roboCopyExportLog.txt"
         #IndexedDB, '*cache*' are intended to reduce the amount of chrome data
     }
     catch {
@@ -81,7 +114,6 @@ foreach ($location in $NetworkLocations){
 
 }
 #>
-
 #endregion CopyFiles
 
 function Export-HKCURegKeys {
@@ -97,12 +129,13 @@ function Export-HKCURegKeys {
 $OfficeRegKeysToExport = @(
     #Outlook Profiles
     #'\Outlook\profiles', #Disabled due to possible profile issues
-    #Outlook Settings (fonts)
-    '\Common\MailSettings',
     #Excel Recent Items(does not work on upgrades)
     '\Excel\User MRU',
     #Word Recent Items(does not work on upgrades)
-    '\Word\User MRU'
+    '\Word\User MRU',
+    #Office Common Settings
+    '\Common',
+    '\User Settings'
 )
 
 $Outlook2016Regpath = 'HKCU:\Software\Microsoft\Office\16.0'
@@ -134,7 +167,7 @@ if (Test-Path $Outlook2010Regpath) {
     }
 
     #ExportProfiles
-	#Disabled due to possible issues
+    #Disabled due to possible issues
     #Export-HKCURegKeys -RegKeyPath 'Software\Microsoft\Windows NT\CurrentVersion\Windows Messaging Subsystem\Profiles'
 }
 else {
@@ -165,11 +198,19 @@ if (-not ($WallpaperPath.WallPaper -like 'C:\Windows\web\wallpaper\Windows\*') -
 #region LocalUserKeysToExport
 $UserRegKeys = @(
     #IE AutoFill
-    'Software\Microsoft\InternetExplorer\IntelliForms',
+    'Software\Microsoft\Internet Explorer\IntelliForms',
     #Workshare settings
     'SOFTWARE\Workshare\Options',
     #OpenText
-    'Software\Hummingbird'
+    'Software\Hummingbird',
+    #WinZip
+    'Software\Nico Mak Computing\WinZip',
+    #WordPerfect
+    'SOFTWARE\Corel',
+    #OfficeCommon Settings
+    'Software\Microsoft\Office\Common',
+    #Custom dictionaries
+    'Software\Microsoft\Shared Tools\Proofing Tools'
 )
 
 foreach ($key in $UserRegKeys) {
@@ -185,7 +226,7 @@ function Export-OutlookSignaturesReg {
 
     param([string]$OfficeVersionRegpath)
 
-    $ProfileKeys = Get-ChildItem "$OfficeVersionRegpath\Outlook\Profiles" -Recurse | Where-Object {$_.PSPath -like '*9375CFF0413111d3B88A00104B2A6676\00000*'}
+    $ProfileKeys = Get-ChildItem "$OfficeVersionRegpath\Outlook\Profiles" -Recurse | Where-Object { $_.PSPath -like '*9375CFF0413111d3B88A00104B2A6676\00000*' }
 
     foreach ($profile in $ProfileKeys) {
         $ProfileProperty = Get-ItemProperty -Path $profile.PSPath
@@ -199,7 +240,12 @@ function Export-OutlookSignaturesReg {
         }
     }
 
-    $Signatures | Export-CSV "$Rootshare\$env:UserName\Signatures.csv" -NoTypeInformation
+    if ($Signatures -ne $null) {
+        $Signatures | Export-CSV "$Rootshare\$env:UserName\Signatures.csv" -NoTypeInformation
+    }
+    else {
+        Add-Content -Path "$PowerShellLogPath" -Value 'Signatures not found'
+    }
 }
 
 if (Test-Path $Outlook2016Regpath) {
@@ -212,3 +258,8 @@ elseif (Test-Path $Outlook2010Regpath) {
     Export-OutlookSignaturesReg -OfficeVersionRegpath $Outlook2010Regpath
 }
 #endregion Signature
+
+#Create file indicating that the script has run
+if (-not (Test-Path "$UserShare\hasran.txt")) {
+    $env:COMPUTERNAME | Out-File "$UserShare\hasran.txt"
+}
