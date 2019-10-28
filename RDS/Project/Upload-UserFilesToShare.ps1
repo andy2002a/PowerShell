@@ -68,6 +68,8 @@ $LocationsToCopy = @(
     'AppData\Roaming\Microsoft\Windows\Cookies',
     'AppData\Roaming\Microsoft\Windows\INetCookies',
     'AppData\Roaming\Corel',
+    'AppData\Roaming\Notepad++',
+    'AppData\Roaming\Visual Studio Code',
     'AppData\Roaming\Cisco\Unified Communications',
     'AppData\Roaming\VMware',
     'AppData\Roaming\Code',
