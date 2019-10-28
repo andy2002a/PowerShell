@@ -6,6 +6,8 @@ All of the keys will be put in a text file under C:\Windows\Temp. Only Administr
 The first protector for the C drive will be returned as the output of this script.
 
 Out-Null is used a lot to avoid incorrect output from going into the RMM tool.
+
+Andy Morales
 #>
 
 Try {
