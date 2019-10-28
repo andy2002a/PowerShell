@@ -1,5 +1,4 @@
 <#
-
 This Script applies Redirected Folder permissions to a folder
 https://social.technet.microsoft.com/Forums/office/en-US/51b7a268-4f46-4adf-b226-763236cdd491/icacls-permissions-set-but-dont-apply-without-change-something-in-the-acl-by-hand?forum=winservergen
 
