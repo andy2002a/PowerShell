@@ -44,11 +44,24 @@ function Test-RegistryValue {
     }
 }
 
-if ((Test-RegistryValue -Path 'Registry::HKEY_LOCAL_MACHINE\SYSTEM\ControlSet001\Control\Terminal Server\ClusterSettings' -Name UvhdEnabled -Value 1) -or (Test-RegistryValue -Path 'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\FSLogix\Profiles' -Name 'Enabled' -ValueData 1)) {
-    #Exclude local_ since FSL Profiles create some local items
+#Array that will store the command and all parameters
+$CommandToExecute = @()
+
+#The basic command
+$CommandToExecute += 'C:\BIN\DelProf2\DelProf2.exe /u'
+
+#UPDs
+if (Test-RegistryValue -Path 'Registry::HKEY_LOCAL_MACHINE\SYSTEM\ControlSet001\Control\Terminal Server\ClusterSettings' -Name UvhdEnabled -Value 1) {
     #UvhdCleanupBin is also excluded since it is unknown what deleting it will do
-    & C:\BIN\DelProf2\DelProf2.exe /u /ed:local_* /ed:UvhdCleanupBin
+    $CommandToExecute += '/ed:UvhdCleanupBin'
 }
-else {
-    Write-Output "UPDs are not enabled. The script will not run"
+
+#FSL Profiles
+if (Test-RegistryValue -Path 'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\FSLogix\Profiles' -Name 'Enabled' -ValueData 1) {
+    #Exclude local_ since FSL Profiles create some local items
+    $CommandToExecute += '/ed:local_*'
 }
+
+Invoke-Expression -Command ($CommandToExecute -join ' ')
+#Run the command again, but remove the local_ exclusion. Replace it with delete profiles older than 3 days. This deletes older local_ files that should not be in use.
+Invoke-Expression -Command ($CommandToExecute -join ' ').Replace('/ed:local_*','/d:3')
