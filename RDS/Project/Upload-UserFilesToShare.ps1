@@ -4,7 +4,7 @@ This script copies all of the folders under $LocationsToCopy to a network locati
 
 Network paths(in the case of redirected AppData) can also be copied over to a share.
 
-Various regsitry keys are also copied over to a share.
+Various registry keys are also copied over to a share.
 
 The script will only copy data from one server. This is intended to reduce data corruption in the event that users are load balanced in non persistent environments(including Roaming profiles). To remove this comment out the CheckForPreviousRun region.
 
@@ -16,7 +16,7 @@ This will allow users to create their own folder while keeping their files secur
 
 Additional reg keys can be copied over by adding items to the $UserRegKeys array.
 
-The robocopy command is set to use 127 threads. This causes incorrect logging, and in some cases can saturdate the network link. Remove /MT:127 to resolve this.
+The robocopy command is set to use 127 threads. This causes incorrect logging, and in some cases can saturate the network link. Remove /MT:127 to resolve this.
 
 .PARAMETER RootShare
 This is the path of the network share that will host the files.
@@ -26,13 +26,36 @@ Andy Morales
 
 $RootShare = '\\SERVER\RDSProfileMigration'
 
+#Specify the path below to map usernames to different accounts.
+#CSV must have two columns: SamAccountName,OLDSamAccountName
+$UserMappingFilePath = '\\SERVER\RDSProfileMigration\UserMapping.csv'
+
+#Region GetUsername
+if (Test-Path $UserMappingFilePath) {
+    $UserMappings = Import-Csv -Path $UserMappingFilePath
+
+    if ($UserMappings.OLDSamAccountName -contains $Env:USERNAME) {
+        #If the current username matches with one of the OLDSamAccountNames set the new SamAccountName as the destination Username
+        $UserMappings | Where-Object { $_.OLDSamAccountName -eq $Env:USERNAME }
+
+        $DestinationUsername = $UserMappings | Where-Object { $_.OLDSamAccountName -eq $Env:USERNAME } | Select-Object -ExpandProperty SamAccountName
+    }
+    else {
+        $DestinationUsername = $Env:USERNAME
+    }
+}
+else {
+    $DestinationUsername = $Env:USERNAME
+}
+#endregion GetUsername
+
 #Create user folder on the share
-$UserShare = $RootShare + '\' + $env:UserName
+$UserShare = $RootShare + '\' + $DestinationUsername
 
 #Comment the block below if you are moving users out of UPDs.
 
 #Region CheckForPreviousRun
-#Check to see if the script has ran before
+#Check to see if the script has run before
 if (Test-Path "$UserShare\hasran.txt") {
     #Exit the script if it is running from a computer other than the original
     if ((Get-Content -Path "$UserShare\hasran.txt") -ne $env:COMPUTERNAME) {
@@ -41,7 +64,7 @@ if (Test-Path "$UserShare\hasran.txt") {
 }
 #endregion CheckForPreviousRun
 
-New-item -Path $UserShare -ItemType Directory -Force
+New-Item -Path $UserShare -ItemType Directory -Force
 
 $PowerShellLogPath = "$usershare\powerShellExportLog.txt"
 
@@ -73,15 +96,19 @@ $LocationsToCopy = @(
     'AppData\Roaming\Cisco\Unified Communications',
     'AppData\Roaming\VMware',
     'AppData\Roaming\Code',
+    'AppData\Roaming\Code\User',
     'AppData\Roaming\Greenshot',
     'AppData\Roaming\PowerShell Pro Tools',
+    'AppData\Roaming\IrfanView',
     #If chrome data has been moved into FSL
-    'AppData\Local\Microsoft\Outlook\ChromeData'
+    'AppData\Local\Microsoft\Outlook\ChromeData',
+    #Experimental. use caution
+    'AppData\Roaming\Microsoft\Internet Explorer\Quick Launch\User Pinned\TaskBar'
 )
 
 foreach ($Location in $LocationsToCopy) {
     try {
-        ROBOCOPY "$env:userprofile\$Location" "$Rootshare\$env:UserName\$Location" /R:0 /W:0 /E /xo /COPY:DATSO /MT:127 /dcopy:t /XD 'System Volume Information' '*cache*' '$RECYCLE.BIN' 'IndexedDB' /XF '*.TMP' '*.temp' '*.localstorage' '*.OST' /np /purge /log+:"$usershare\roboCopyExportLog.txt"
+        ROBOCOPY "$env:userprofile\$Location" "$UserShare\$Location" /R:0 /W:0 /E /xo /COPY:DATSO /MT:127 /dcopy:t /XD 'System Volume Information' '*cache*' '$RECYCLE.BIN' 'IndexedDB' /XF '*.TMP' '*.temp' '*.localstorage' '*.OST' /np /purge /log+:"$usershare\roboCopyExportLog.txt"
         #IndexedDB, '*cache*', and '*.localstorage' are intended to reduce the amount of chrome data
     }
     catch {
@@ -104,11 +131,11 @@ $NetworkLocations =@(
 
 foreach ($location in $NetworkLocations){
 	try {
-        ROBOCOPY "\\SERVER\rprofiles$\$env:UserName\$Location" "$Rootshare\$env:UserName\$Location" /R:0 /W:0 /E /xo /COPY:DATSO /dcopy:t /XD 'System Volume Information' '*cache*' '$RECYCLE.BIN' 'IndexedDB' /XF '*.TMP' '*.temp' /np /purge /log+:"$usershare\roboCopyExportLog.txt"
+        ROBOCOPY "\\SERVER\rprofiles$\$env:UserName\$Location" "$UserShare\$Location" /R:0 /W:0 /E /xo /COPY:DATSO /dcopy:t /XD 'System Volume Information' '*cache*' '$RECYCLE.BIN' 'IndexedDB' /XF '*.TMP' '*.temp' /np /purge /log+:"$usershare\roboCopyExportLog.txt"
         #IndexedDB, '*cache*' are intended to reduce the amount of chrome data
     }
     catch {
-        Add-Content -Path "$PowerShellLogPath" -Value "Errory copying C:\Users\$Location to $Rootshare\$Location"
+        Add-Content -Path "$PowerShellLogPath" -Value "Error copying C:\Users\$Location to $Rootshare\$Location"
         Add-Content -Path "$PowerShellLogPath" -Value $Error[0]
     }
 
@@ -119,10 +146,28 @@ foreach ($location in $NetworkLocations){
 #endregion CopyFiles
 
 function Export-HKCURegKeys {
-    param([string]$RegKeyPath)
+    [CmdletBinding()]
+    param(
+        [parameter(Mandatory = $true, Position = 1)]
+        [string]$RegKeyPath,
+
+        [parameter(Mandatory = $false)]
+        [ValidatePattern('^\..*$')]
+        [string]$CustomExtension
+    )
 
     if (Test-Path "HKCU:\$RegKeyPath") {
-        $exportPath = $UserShare + '\' + ($RegKeyPath.replace('\', '')).replace(':', '') + '.reg'
+
+        #Remove any non alphanumeric characters from the path
+        $exportPath = $UserShare + '\' + ($RegKeyPath -replace "[^a-zA-Z0-9]", "")
+
+        if ($CustomExtension) {
+            $exportPath += $CustomExtension
+        }
+        else {
+            $exportPath += '.reg'
+        }
+
         reg export "HKEY_CURRENT_USER\$RegKeyPath" "$exportPath" /y
     }
 }
@@ -182,7 +227,7 @@ $WallpaperPath = Get-ItemProperty 'hkcu:\Control Panel\Desktop' -Name WallPaper
 
 if (-not ($WallpaperPath.WallPaper -like 'C:\Windows\web\wallpaper\Windows\*') -and ($WallpaperPath.WallPaper -like "$env:userprofile*") ) {
     $WallpaperDestinationPath = $WallpaperPath.WallPaper.Replace("$env:userprofile\", '')
-    Copy-Item -Path $WallpaperPath.WallPaper -Destination "$Rootshare\$env:UserName\$WallpaperDestinationPath"
+    Copy-Item -Path $WallpaperPath.WallPaper -Destination "$UserShare\$WallpaperDestinationPath"
 
     $WallpaperRegSavePath = $UserShare + '\Wallpaper.reg'
     $Wallpaperfilepath = ($WallpaperPath.WallPaper).Replace('\', '\\')
@@ -201,8 +246,14 @@ if (-not ($WallpaperPath.WallPaper -like 'C:\Windows\web\wallpaper\Windows\*') -
 $UserRegKeys = @(
     #IE AutoFill
     'Software\Microsoft\Internet Explorer\IntelliForms',
-    #Workshare settings
+    #WorkShare settings
     'SOFTWARE\Workshare\Options',
+    #Multiple MonitorShow Taskbar buttons location preference
+    'Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced\MMTaskbarMode',
+    #Multiple Monitor Combine taskbar button preference
+    'Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced\MMTaskbarGlomLevel',
+    #Combine taskbar button preference
+    'Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced\TaskbarGlomLevel',
     #OpenText
     'Software\Hummingbird',
     #WinZip
@@ -212,7 +263,10 @@ $UserRegKeys = @(
     #OfficeCommon Settings
     'Software\Microsoft\Office\Common',
     #Custom dictionaries
-    'Software\Microsoft\Shared Tools\Proofing Tools'
+    'Software\Microsoft\Shared Tools\Proofing Tools',
+    #Taskbar
+    #Use with caution
+    'Software\Microsoft\Windows\CurrentVersion\Explorer\Taskband'
 )
 
 foreach ($key in $UserRegKeys) {
@@ -223,7 +277,7 @@ foreach ($key in $UserRegKeys) {
 
 #region Signature
 #https://ifnotisnull.wordpress.com/automated-outlook-signatures-vbscript/configuring-outlook-for-the-signatures-within-the-users-registry/
-#Save the signature data to a CSV. The import script will create the appriate keys on its side.
+#Save the signature data to a CSV. The import script will create the appropriate keys on its side.
 function Export-OutlookSignaturesReg {
 
     param([string]$OfficeVersionRegpath)
@@ -243,7 +297,7 @@ function Export-OutlookSignaturesReg {
     }
 
     if ($Signatures -ne $null) {
-        $Signatures | Export-CSV "$Rootshare\$env:UserName\Signatures.csv" -NoTypeInformation
+        $Signatures | Export-Csv "$Rootshare\$env:UserName\Signatures.csv" -NoTypeInformation
     }
     else {
         Add-Content -Path "$PowerShellLogPath" -Value 'Signatures not found'
@@ -261,7 +315,7 @@ elseif (Test-Path $Outlook2010Regpath) {
 }
 #endregion Signature
 
-#Create file indicating that the script has run
+#Create file indicating that the script has run and the OS Version
 if (-not (Test-Path "$UserShare\hasran.txt")) {
     $env:COMPUTERNAME | Out-File "$UserShare\hasran.txt"
 }
