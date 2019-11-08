@@ -2,7 +2,6 @@
 <!--List of Files that should be excluded when redirecting -Andy Morales-->
 <FrxProfileFolderRedirection ExcludeCommonFolders="0">
   <Excludes>
-
     <!--Spotify-->
     <Exclude Copy="0">AppData\Local\Spotify\Storage</Exclude>
     <Exclude Copy="0">AppData\Local\Spotify\Data</Exclude>
@@ -20,6 +19,7 @@
     <Exclude Copy="0">AppData\Local\Microsoft\Windows\INetCache</Exclude>
 
     <!--Firefox-->
+	<!--Excludes temp data only. Profile data is in AppData\Roaming-->
     <Exclude Copy="0">AppData\Local\Mozilla\Firefox</Exclude>
 
     <!--Chrome-->
