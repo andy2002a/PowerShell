@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--List of Files that should be excluded when redirecting -Andy Morales-->
+<FrxProfileFolderRedirection ExcludeCommonFolders="0">
+  <Excludes>
+
+    <!--Spotify-->
+    <Exclude Copy="0">AppData\Local\Spotify\Storage</Exclude>
+    <Exclude Copy="0">AppData\Local\Spotify\Data</Exclude>
+
+    <!--Misc Windows-->
+    <Exclude Copy="0">AppData\LocalLow</Exclude>
+    <Exclude Copy="0">AppData\Local\Microsoft\Windows\Caches</Exclude>
+    <Exclude Copy="0">AppData\Local\Microsoft\Terminal Server Client</Exclude>
+
+    <!--Java-->
+    <Exclude Copy="0">AppData\Roaming\Sun\Java\Deployment\cache</Exclude>
+    <Exclude Copy="0">AppData\Roaming\Sun\Java\Deployment\tmp</Exclude>
+
+    <!--IE-->
+    <Exclude Copy="0">AppData\Local\Microsoft\Windows\INetCache</Exclude>
+
+    <!--Firefox-->
+    <Exclude Copy="0">AppData\Local\Mozilla\Firefox</Exclude>
+
+    <!--Chrome-->
+    <Exclude Copy="0">AppData\Local\Google\Chrome\User Data\Default\Cache</Exclude>
+    <Exclude Copy="0">AppData\Local\Google\Chrome\User Data\ShaderCache</Exclude>
+    <Exclude Copy="0">AppData\Local\Google\Chrome\User Data\Default\Code Cache\js</Exclude>
+    <Exclude Copy="0">AppData\Local\Google\Chrome\User Data\BrowserMetrics</Exclude>
+    <Exclude Copy="0">AppData\Roaming\GoogleChrome\UserData\Default\Code Cache\js</Exclude>
+    <Exclude Copy="0">AppData\Roaming\Google\Chrome\UserData\ShaderCache</Exclude>
+    <Exclude Copy="0">AppData\Roaming\Google\Chrome\UserData\BrowserMetrics</Exclude>
+
+    <!--Edge-->
+    <Exclude Copy="0">AppData\Local\Microsoft\Edge Beta\User Data\Default\Cache</Exclude>
+    <Exclude Copy="0">AppData\Local\Microsoft\Edge Beta\User Data\Default\Code Cache\js</Exclude>
+    <Exclude Copy="0">AppData\Local\Microsoft\Edge Beta\User Data\ShaderCache</Exclude>
+    <Exclude Copy="0">AppData\Local\Microsoft\Edge Beta\User Data\BrowserMetrics</Exclude>
+    <Exclude Copy="0">AppData\Local\Microsoft\Edge\User Data\Default\Cache</Exclude>
+    <Exclude Copy="0">AppData\Local\Microsoft\Edge\User Data\Default\Code Cache\js</Exclude>
+    <Exclude Copy="0">AppData\Local\Microsoft\Edge\User Data\ShaderCache</Exclude>
+    <Exclude Copy="0">AppData\Local\Microsoft\Edge\User Data\BrowserMetrics</Exclude>
+  </Excludes>
+  <Includes>
+    <Include Copy="3">AppData\LocalLow\Sun\Java\Deployment\security</Include>
+  </Includes>
+</FrxProfileFolderRedirection>
