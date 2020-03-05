@@ -31,17 +31,21 @@ $RootShare = '\\SERVER\RDSProfileMigration'
 $UserMappingFilePath = '\\SERVER\RDSProfileMigration\UserMapping.csv'
 
 #Region GetUsername
-if (Test-Path $UserMappingFilePath) {
-    $UserMappings = Import-Csv -Path $UserMappingFilePath
+#Check to make sure variable exists and is set
+if ($UserMappingFilePath) {
+    #Check to see if the mapping file exists
+    if (Test-Path $UserMappingFilePath) {
+        $UserMappings = Import-Csv -Path $UserMappingFilePath
 
-    if ($UserMappings.OLDSamAccountName -contains $Env:USERNAME) {
-        #If the current username matches with one of the OLDSamAccountNames set the new SamAccountName as the destination Username
-        $UserMappings | Where-Object { $_.OLDSamAccountName -eq $Env:USERNAME }
+        if ($UserMappings.OLDSamAccountName -contains $Env:USERNAME) {
+            #If the current username matches with one of the OLDSamAccountNames set the new SamAccountName as the destination Username
+            $UserMappings | Where-Object { $_.OLDSamAccountName -eq $Env:USERNAME }
 
-        $DestinationUsername = $UserMappings | Where-Object { $_.OLDSamAccountName -eq $Env:USERNAME } | Select-Object -ExpandProperty SamAccountName
-    }
-    else {
-        $DestinationUsername = $Env:USERNAME
+            $DestinationUsername = $UserMappings | Where-Object { $_.OLDSamAccountName -eq $Env:USERNAME } | Select-Object -ExpandProperty SamAccountName
+        }
+        else {
+            $DestinationUsername = $Env:USERNAME
+        }
     }
 }
 else {
@@ -85,7 +89,8 @@ $LocationsToCopy = @(
     'AppData\Roaming\Microsoft\Proof',
     'AppData\Roaming\Microsoft\UProof',
     'AppData\Roaming\Microsoft\Office',
-    'AppData\Roaming\Microsoft\Outlook'
+    'AppData\Roaming\Microsoft\Outlook',
+    'AppData\Roaming\Microsoft\OneNote',
     'AppData\Roaming\Microsoft\Windows\Themes',
     'AppData\Roaming\Microsoft\Windows\Recent',
     'AppData\Roaming\Microsoft\Windows\Cookies',
@@ -98,6 +103,7 @@ $LocationsToCopy = @(
     'AppData\Roaming\Code',
     'AppData\Roaming\Code\User',
     'AppData\Roaming\Greenshot',
+    'AppData\Roaming\Intuit',
     'AppData\Roaming\PowerShell Pro Tools',
     'AppData\Roaming\IrfanView',
     #If chrome data has been moved into FSL
@@ -108,8 +114,8 @@ $LocationsToCopy = @(
 
 foreach ($Location in $LocationsToCopy) {
     try {
-        ROBOCOPY "$env:userprofile\$Location" "$UserShare\$Location" /R:0 /W:0 /E /xo /COPY:DATSO /MT:127 /dcopy:t /XD 'System Volume Information' '*cache*' '$RECYCLE.BIN' 'IndexedDB' /XF '*.TMP' '*.temp' '*.localstorage' '*.OST' /np /purge /log+:"$usershare\roboCopyExportLog.txt"
-        #IndexedDB, '*cache*', and '*.localstorage' are intended to reduce the amount of chrome data
+        ROBOCOPY "$env:userprofile\$Location" "$UserShare\$Location" /R:0 /W:0 /E /xo /COPY:DATSO /MT:127 /dcopy:t /XD "System Volume Information" "*cache*" "$RECYCLE.BIN" "IndexedDB" /XF '*.TMP' '*.temp' '*.localstorage' '*.OST' /np /purge /log+:"$usershare\roboCopyExportLog.txt"
+        #IndexedDB, "*cache*", and '*.localstorage' are intended to reduce the amount of chrome data
     }
     catch {
         Add-Content -Path "$PowerShellLogPath" -Value "Errory copying C:\Users\$Location to $Rootshare\$Location"
@@ -131,8 +137,8 @@ $NetworkLocations =@(
 
 foreach ($location in $NetworkLocations){
 	try {
-        ROBOCOPY "\\SERVER\rprofiles$\$env:UserName\$Location" "$UserShare\$Location" /R:0 /W:0 /E /xo /COPY:DATSO /dcopy:t /XD 'System Volume Information' '*cache*' '$RECYCLE.BIN' 'IndexedDB' /XF '*.TMP' '*.temp' /np /purge /log+:"$usershare\roboCopyExportLog.txt"
-        #IndexedDB, '*cache*' are intended to reduce the amount of chrome data
+        ROBOCOPY "\\SERVER\rprofiles$\$env:UserName\$Location" "$UserShare\$Location" /R:0 /W:0 /E /xo /COPY:DATSO /dcopy:t /XD "System Volume Information" "*cache*" "$RECYCLE.BIN" "IndexedDB" /XF '*.TMP' '*.temp' /np /purge /log+:"$usershare\roboCopyExportLog.txt"
+        #IndexedDB, "*cache*" are intended to reduce the amount of chrome data
     }
     catch {
         Add-Content -Path "$PowerShellLogPath" -Value "Error copying C:\Users\$Location to $Rootshare\$Location"

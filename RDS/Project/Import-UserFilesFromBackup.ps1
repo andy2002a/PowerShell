@@ -101,7 +101,7 @@ if (-not (Test-Path $env:userprofile\BlockImportScript)) {
 
         try {
             #IndexedDB, '*cache*' are intended to reduce the amount of chrome data
-            ROBOCOPY "$UserShare" "$env:userprofile" /R:0 /W:0 /E /xo /COPY:DATSO /MT:127 /dcopy:t /XD 'System Volume Information' '*cache*' '$RECYCLE.BIN' 'IndexedDB' /XF '*.TMP' /np /log+:"$usershare\roboCopyImportLog.txt"
+            ROBOCOPY "$UserShare" "$env:userprofile" /R:0 /W:0 /E /xo /COPY:DATSO /MT:127 /dcopy:t /XD "System Volume Information" "*cache*" "$RECYCLE.BIN" "IndexedDB" /XF '*.TMP' /np /log+:"$usershare\roboCopyImportLog.txt"
 
             #Hide the AppData Folder since robocopy sets it to show
             attrib +h "$env:USERPROFILE\AppData"
@@ -134,7 +134,7 @@ if (-not (Test-Path $env:userprofile\BlockImportScript)) {
 
         #Move Chrome Data into Outlook folder (FSLogix Only)
         <#
-        robocopy "$env:LOCALAPPDATA\Google\Chrome\User Data" "$env:LOCALAPPDATA\Microsoft\Outlook\ChromeData" /MOVE /R:0 /W:0 /E /xo /COPY:DATSO /dcopy:t /XD 'System Volume Information' '*cache*' '$RECYCLE.BIN' 'IndexedDB' /XF '*.TMP' '*.temp' /np /purge /log+:"$usershare\roboCopyChromeLog.txt"
+        robocopy "$env:LOCALAPPDATA\Google\Chrome\User Data" "$env:LOCALAPPDATA\Microsoft\Outlook\ChromeData" /MOVE /R:0 /W:0 /E /xo /COPY:DATSO /dcopy:t /XD "System Volume Information" "*cache*" "$RECYCLE.BIN" "IndexedDB" /XF '*.TMP' '*.temp' /np /purge /log+:"$usershare\roboCopyChromeLog.txt"
         Remove-Item -Path "$env:LOCALAPPDATA\Google\Chrome\User Data" –recurse -force
         #>
 
@@ -142,7 +142,7 @@ if (-not (Test-Path $env:userprofile\BlockImportScript)) {
         #Move Chrome Data Out of the FSL ODFC Container
         <#
         if (Test-Path -Path "$env:userprofile\AppData\Local\Microsoft\Outlook\ChromeData"){
-                ROBOCOPY "$env:userprofile\AppData\Local\Microsoft\Outlook\ChromeData" "$env:userprofile\AppData\Local\Google\Chrome\User Data" /MOVE /R:0 /W:0 /E /xo /COPY:DATSO /MT:127 /dcopy:t /XD 'System Volume Information' '*cache*' '$RECYCLE.BIN' 'IndexedDB' /XF '*.TMP' /np /log+:"$usershare\roboCopyImportLog.txt"
+                ROBOCOPY "$env:userprofile\AppData\Local\Microsoft\Outlook\ChromeData" "$env:userprofile\AppData\Local\Google\Chrome\User Data" /MOVE /R:0 /W:0 /E /xo /COPY:DATSO /MT:127 /dcopy:t /XD "System Volume Information" "*cache*" "$RECYCLE.BIN" "IndexedDB" /XF '*.TMP' /np /log+:"$usershare\roboCopyImportLog.txt"
                 Remove-Item -Path "$env:userprofile\AppData\Local\Microsoft\Outlook\ChromeData" –recurse -force
         }
         #>
@@ -151,10 +151,12 @@ if (-not (Test-Path $env:userprofile\BlockImportScript)) {
         New-Item -Path "$env:userprofile/BlockImportScript" -ItemType File
 
         #Notify User
-        Invoke-popup -message "Your files have been migrated to the remote profile."
+        Invoke-popup -message "Files Migrated to Remote."
     }
     else {
         Add-Content -Path "$PowerShellLogPath" -Value "Could not find User's share under $UserShare"
+
+        Invoke-popup -message "Could not find share under $UserShare."
     }
 }
 else {
