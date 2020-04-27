@@ -21,6 +21,12 @@
 
     <!--Firefox-->
     <Exclude Copy="0">AppData\Local\Mozilla\Firefox</Exclude>
+	
+	<!--Google Earth-->
+	<Exclude Copy="0">AppData\LocalLow\Google\GoogleEarth\Cache</Exclude>
+
+	<!--Webex Cache-->
+	<Exclude Copy="0">AppData\Local\WebEx\wbxcache</Exclude>
 
     <!--Chrome-->
 	<!--Removed because it would causes webpages to load incorrectly every first launch
