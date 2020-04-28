@@ -1,11 +1,11 @@
 <#
+This script will identify which (if any) printing solution is installed on the machine.
 
-This script deletes local profile data on an RDS server that has UPDs or FSL Profiles. When UPDs are enabled user files will sometimes be left behind. This can cause some unexpected resuults with applications.
-
-The script has a failsafe that does not run if UPDs or FSL Profiles become disabled at any point.
+The script will return a blank space if nothing is found. The goal of this is to set the computer property to blank in the event that the application is removed.
 
 Andy Morales
 #>
+
 function Test-RegistryValue {
     #Modified version of the function below
     #https://www.jonathanmedd.net/2014/02/testing-for-the-presence-of-a-registry-key-and-value.html
@@ -51,24 +51,31 @@ function Test-RegistryValue {
     }
 }
 
-#Array that will store the command and all parameters
-$CommandToExecute = @()
+$PrintSolution = @()
 
-#The basic command
-$CommandToExecute += 'C:\BIN\DelProf2\DelProf2.exe /u'
-
-#UPDs
-if (Test-RegistryValue -Path 'Registry::HKEY_LOCAL_MACHINE\SYSTEM\ControlSet001\Control\Terminal Server\ClusterSettings' -Name UvhdEnabled -Value 1) {
-    #UvhdCleanupBin is also excluded since it is unknown what deleting it will do
-    $CommandToExecute += '/ed:UvhdCleanupBin'
+If (Test-RegistryValue -Path 'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Tricerat\Simplify Console\External Tools' -Name 'Menu0' -ValueData RegDiff) {
+    #Simplify Print Console
+    $PrintSolution += 'Simplify Print Console'
 }
 
-#FSL Profiles
-if (Test-RegistryValue -Path 'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\FSLogix\Profiles' -Name 'Enabled' -ValueData 1) {
-    #Exclude local_ since FSL Profiles create some local items
-    $CommandToExecute += '/ed:local_*'
+if (Test-RegistryValue -Path 'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Tricerat\Simplify Printing\ScrewDrivers Print Server v6' -Name Port) {
+    #Simplify Print Server
+    $PrintSolution += 'Simplify Print Server'
 }
 
-Invoke-Expression -Command ($CommandToExecute -join ' ')
-#Run the command again, but remove the local_ exclusion. Replace it with delete profiles older than 3 days. This deletes older local_ files that should not be in use.
-Invoke-Expression -Command ($CommandToExecute -join ' ').Replace('/ed:local_*','/d:3')
+if (Test-RegistryValue -Path 'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Tricerat\Simplify Printing' -Name dwProviderAvailable -ValueData 1) {
+    #Simplify Printing
+    $PrintSolution += 'Simplify Printing'
+}
+
+if (Test-RegistryValue -Path 'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Tricerat\Simplify Printing\ScrewDrivers Server v6' -Name StandAlone -ValueData 1) {
+    #ScrewDrivers Redirection
+    $PrintSolution += 'ScrewDrivers Redirection'
+}
+
+if (Test-Path "$env:ProgramFiles\PaperCut MF Client\pc-client.exe") {
+    #Papercut
+    $PrintSolution += 'PaperCut'
+}
+
+Return $PrintSolution -join ' '

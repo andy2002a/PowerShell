@@ -1,8 +1,6 @@
 <#
 
-This script deletes local profile data on an RDS server that has UPDs or FSL Profiles. When UPDs are enabled user files will sometimes be left behind. This can cause some unexpected resuults with applications.
-
-The script has a failsafe that does not run if UPDs or FSL Profiles become disabled at any point.
+This script returns the FSL ODFC path that is configured on a server.
 
 Andy Morales
 #>
@@ -51,24 +49,15 @@ function Test-RegistryValue {
     }
 }
 
-#Array that will store the command and all parameters
-$CommandToExecute = @()
-
-#The basic command
-$CommandToExecute += 'C:\BIN\DelProf2\DelProf2.exe /u'
-
-#UPDs
-if (Test-RegistryValue -Path 'Registry::HKEY_LOCAL_MACHINE\SYSTEM\ControlSet001\Control\Terminal Server\ClusterSettings' -Name UvhdEnabled -Value 1) {
-    #UvhdCleanupBin is also excluded since it is unknown what deleting it will do
-    $CommandToExecute += '/ed:UvhdCleanupBin'
+#Check to see if FSL ODFC is enabled
+if (Test-RegistryValue -Path 'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\FSLogix\Profiles' -Name 'Enabled' -ValueData '1') {
+    if (Test-RegistryValue -Path 'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\FSLogix\Profiles' -Name VHDLocations) {
+        Return (Get-ItemProperty -Path 'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\FSLogix\Profiles' -Name VHDLocations).VHDLocations
+    }
+    else {
+        Return ''
+    }
 }
-
-#FSL Profiles
-if (Test-RegistryValue -Path 'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\FSLogix\Profiles' -Name 'Enabled' -ValueData 1) {
-    #Exclude local_ since FSL Profiles create some local items
-    $CommandToExecute += '/ed:local_*'
+else {
+    Return ''
 }
-
-Invoke-Expression -Command ($CommandToExecute -join ' ')
-#Run the command again, but remove the local_ exclusion. Replace it with delete profiles older than 3 days. This deletes older local_ files that should not be in use.
-Invoke-Expression -Command ($CommandToExecute -join ' ').Replace('/ed:local_*','/d:3')
