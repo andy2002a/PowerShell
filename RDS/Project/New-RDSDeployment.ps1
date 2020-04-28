@@ -1,4 +1,27 @@
-#Requires -Modules remotedesktopservices,remotedesktop,servermanager,servermanagertasks,IISAdministration -Version 5 -RunAsAdministrator
+<#
+.SYNOPSIS
+This script creates an RDG Deployment.
+
+.DESCRIPTION
+The script will add all RDS servers to one collection. Any required roles will be installed. The certificate for all roles will be assigned to the RDG.
+
+The default webpage of the server will be redirected to RDWeb.
+
+.PARAMETER RDSservers
+All of the RDS Servers that will be part of the collection.
+
+.PARAMETER RDWebFQDN
+RDWebsite URL remote.example.com
+
+.PARAMETER CertificateFullPath
+Full path to the certificate file. CSR can be generated with New-RDGCertRequest.ps1
+
+.EXAMPLE
+New-RDSDeployment.ps1 -RDSServers EX-RDS1,EX-RDS2 -LicensingServerFQDN EX-SVR1.example.com -RDWebFQDN remote.example.com -CollectionName ExCollection -GatewayName EX-RDG1 -CertificateFullPath 'C:\temp\f2b531849d3e966c.crt'
+
+Andy Morales
+#>
+#Requires -Modules remotedesktopservices, remotedesktop, servermanager, servermanagertasks, IISAdministration -Version 5 -RunAsAdministrator
 
 [cmdletbinding()]
 param(
@@ -12,6 +35,7 @@ param(
     [String]$LicensingServerFQDN,
 
     [Parameter(Mandatory = $true, HelpMessage = 'remote.example.com')]
+    [ValidatePattern('.*?\..*?\..*')]
     [String]$RDWebFQDN,
 
     [Parameter(Mandatory = $true)]
@@ -97,7 +121,7 @@ try {
     $CurrentRDSServers = (Get-RDServer -ErrorAction Stop).server
 }#End Try
 catch {
-    Write-output 'No RDS Servers found. This is not an issue if this is a new deployment'
+    Write-Output 'No RDS Servers found. This is not an issue if this is a new deployment'
 }#End Catch
 
 #region Add-RDSServersToFarm
@@ -141,7 +165,7 @@ else {
         Write-Output "$($LicensingServerFQDN) has been sucessfully added to the farm"
     }
     Catch {
-        Write-output "Could not add the server $($LicensingServerFQDN) to the farm."
+        Write-Output "Could not add the server $($LicensingServerFQDN) to the farm."
         break
     }
 }#End Else
