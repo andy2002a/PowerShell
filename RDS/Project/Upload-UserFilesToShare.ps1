@@ -26,9 +26,20 @@ Andy Morales
 
 $RootShare = '\\SERVER\RDSProfileMigration'
 
+#Comment the block below if you are moving users out of UPDs.
+#Region CheckForPreviousRun
+#Check to see if the script has run before
+if (Test-Path "$UserShare\hasran.txt") {
+    #Exit the script if it is running from a computer other than the original
+    if ((Get-Content -Path "$UserShare\hasran.txt") -ne $env:COMPUTERNAME) {
+        exit
+    }
+}
+#endregion CheckForPreviousRun
+
 #Specify the path below to map usernames to different accounts.
 #CSV must have two columns: SamAccountName,OLDSamAccountName
-$UserMappingFilePath = '\\SERVER\RDSProfileMigration\UserMapping.csv'
+#$UserMappingFilePath = '\\SERVER\RDSProfileMigration\UserMapping.csv'
 
 #Region GetUsername
 #Check to make sure variable exists and is set
@@ -47,6 +58,9 @@ if ($UserMappingFilePath) {
             $DestinationUsername = $Env:USERNAME
         }
     }
+    else {
+        $DestinationUsername = $Env:USERNAME
+    }
 }
 else {
     $DestinationUsername = $Env:USERNAME
@@ -55,18 +69,6 @@ else {
 
 #Create user folder on the share
 $UserShare = $RootShare + '\' + $DestinationUsername
-
-#Comment the block below if you are moving users out of UPDs.
-
-#Region CheckForPreviousRun
-#Check to see if the script has run before
-if (Test-Path "$UserShare\hasran.txt") {
-    #Exit the script if it is running from a computer other than the original
-    if ((Get-Content -Path "$UserShare\hasran.txt") -ne $env:COMPUTERNAME) {
-        exit
-    }
-}
-#endregion CheckForPreviousRun
 
 New-Item -Path $UserShare -ItemType Directory -Force
 
@@ -102,7 +104,10 @@ $LocationsToCopy = @(
     'AppData\Roaming\VMware',
     'AppData\Roaming\Code',
     'AppData\Roaming\Code\User',
+	'AppData\Roaming\Philips Speech',
+    'AppData\Roaming\CADzation',
     'AppData\Roaming\Greenshot',
+	'AppData\Roaming\Nuance'
     'AppData\Roaming\Intuit',
     'AppData\Roaming\PowerShell Pro Tools',
     'AppData\Roaming\IrfanView',
@@ -252,6 +257,12 @@ if (-not ($WallpaperPath.WallPaper -like 'C:\Windows\web\wallpaper\Windows\*') -
 $UserRegKeys = @(
     #IE AutoFill
     'Software\Microsoft\Internet Explorer\IntelliForms',
+	#IE Settings
+	'Software\Microsoft\Internet Explorer\Main',
+	#Greenshot
+	'AppData\Roaming\Greenshot',
+	#Nuance
+	'Software\Nuance',
     #WorkShare settings
     'SOFTWARE\Workshare\Options',
     #Multiple MonitorShow Taskbar buttons location preference
@@ -262,6 +273,10 @@ $UserRegKeys = @(
     'Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced\TaskbarGlomLevel',
     #OpenText
     'Software\Hummingbird',
+    #CADzation
+    'Software\CADzation',
+    #LexisNexis
+    'Software\LexisNexis',
     #WinZip
     'Software\Nico Mak Computing\WinZip',
     #WordPerfect
@@ -321,7 +336,7 @@ elseif (Test-Path $Outlook2010Regpath) {
 }
 #endregion Signature
 
-#Create file indicating that the script has run and the OS Version
+#Create file indicating that the script has run and the Computer Name
 if (-not (Test-Path "$UserShare\hasran.txt")) {
     $env:COMPUTERNAME | Out-File "$UserShare\hasran.txt"
 }
