@@ -1,0 +1,13 @@
+Get-ADUser -filter * -Properties mail | ? {$_.mail -and $_.UserPrincipalName} | ? {($_.mail.split('@')[0]) -ne ($_.UserPrincipalName.split('@')[0])}
+
+
+<#
+#To Fix:
+
+$EmailUPNMismatch = Get-ADUser -filter * -Properties mail | ? {$_.mail -and $_.UserPrincipalName} | ? {($_.mail.split('@')[0]) -ne ($_.UserPrincipalName.split('@')[0])}
+
+foreach ($user in $EmailUPNMismatch){
+    Set-AzureADUser -ObjectId $user.UserPrincipalName -UserPrincipalName $user.mail
+}
+
+#>
