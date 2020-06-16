@@ -104,10 +104,10 @@ $LocationsToCopy = @(
     'AppData\Roaming\VMware',
     'AppData\Roaming\Code',
     'AppData\Roaming\Code\User',
-	'AppData\Roaming\Philips Speech',
+    'AppData\Roaming\Philips Speech',
     'AppData\Roaming\CADzation',
     'AppData\Roaming\Greenshot',
-	'AppData\Roaming\Nuance'
+    'AppData\Roaming\Nuance'
     'AppData\Roaming\Intuit',
     'AppData\Roaming\PowerShell Pro Tools',
     'AppData\Roaming\IrfanView',
@@ -261,12 +261,12 @@ if (-not ($WallpaperPath.WallPaper -like 'C:\Windows\web\wallpaper\Windows\*') -
 $UserRegKeys = @(
     #IE AutoFill
     'Software\Microsoft\Internet Explorer\IntelliForms',
-	#IE Settings
-	'Software\Microsoft\Internet Explorer\Main',
-	#Greenshot
-	'AppData\Roaming\Greenshot',
-	#Nuance
-	'Software\Nuance',
+    #IE Settings
+    'Software\Microsoft\Internet Explorer\Main',
+    #Greenshot
+    'AppData\Roaming\Greenshot',
+    #Nuance
+    'Software\Nuance',
     #WorkShare settings
     'SOFTWARE\Workshare\Options',
     #Multiple MonitorShow Taskbar buttons location preference
