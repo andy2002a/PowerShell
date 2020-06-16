@@ -115,6 +115,9 @@ $LocationsToCopy = @(
     'AppData\Local\Microsoft\Outlook\ChromeData',
     #Experimental. use caution
     'AppData\Roaming\Microsoft\Internet Explorer\Quick Launch\User Pinned\TaskBar'
+    #Adobe
+    'AppData\Roaming\Adobe'
+
 )
 
 foreach ($Location in $LocationsToCopy) {
@@ -193,7 +196,8 @@ $OfficeRegKeysToExport = @(
     '\Word\User MRU',
     #Office Common Settings
     '\Common',
-    '\User Settings'
+    '\User Settings',
+    '\onenote'
 )
 
 $Outlook2016Regpath = 'HKCU:\Software\Microsoft\Office\16.0'
@@ -287,7 +291,11 @@ $UserRegKeys = @(
     'Software\Microsoft\Shared Tools\Proofing Tools',
     #Taskbar
     #Use with caution
-    'Software\Microsoft\Windows\CurrentVersion\Explorer\Taskband'
+    'Software\Microsoft\Windows\CurrentVersion\Explorer\Taskband',
+    #Desktop Settings
+    'Software\Microsoft\Windows\Shell\Bags\1\Desktop',
+    #Adobe
+    'Software\Adobe'
 )
 
 foreach ($key in $UserRegKeys) {
