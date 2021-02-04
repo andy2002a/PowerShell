@@ -1,5 +1,10 @@
 Function Set-RdPublishedName {
-    #https://gallery.technet.microsoft.com/Change-published-FQDN-for-2a029b80
+    <#
+    https://gallery.technet.microsoft.com/Change-published-FQDN-for-2a029b80
+    
+    .EXAMPLE
+    Set-RdPublishedName -ClientAccessName remote.example.com
+    #>
     [CmdletBinding()]
     Param(
         [Parameter(Mandatory = $True, HelpMessage = "Specifies the FQDN that clients will use when connecting to the deployment.", Position = 1)]
