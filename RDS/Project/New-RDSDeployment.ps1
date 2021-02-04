@@ -16,43 +16,19 @@ RDWebsite URL remote.example.com
 .PARAMETER CertificateFullPath
 Full path to the certificate file. CSR can be generated with New-RDGCertRequest.ps1
 
-.EXAMPLE
-New-RDSDeployment.ps1 -RDSServers EX-RDS1,EX-RDS2 -LicensingServerFQDN EX-SVR1.example.com -RDWebFQDN remote.example.com -CollectionName ExCollection -GatewayName EX-RDG1 -CertificateFullPath 'C:\temp\f2b531849d3e966c.crt'
-
 Andy Morales
 #>
-#Requires -Modules remotedesktopservices, remotedesktop, servermanager, servermanagertasks, IISAdministration -Version 5 -RunAsAdministrator
+#Requires -Modules remotedesktopservices, remotedesktop, servermanager, servermanagertasks, ActiveDirectory, IISAdministration -Version 5 -RunAsAdministrator
 
-[cmdletbinding()]
-param(
+$RDSservers = @('RDS1', 'RDS2')
+$LicensingServerFQDN = 'SRV.domain.com'
+$RDWebFQDN = 'remote.example.com'
+$CollectionName = 'Collection'
+$GatewayName = 'RDG1'
+$CertificateFullPath = 'C:\temp\f2b531849d3e966c.crt'
 
-    [Parameter(Mandatory = $true,
-        ValueFromPipelineByPropertyName = $true,
-        Position = 1)]
-    [string[]]$RDSservers,
-
-    [Parameter(Mandatory = $true, HelpMessage = 'Domain Controller, or RDG')]
-    [String]$LicensingServerFQDN,
-
-    [Parameter(Mandatory = $true, HelpMessage = 'remote.example.com')]
-    [ValidatePattern('.*?\..*?\..*')]
-    [String]$RDWebFQDN,
-
-    [Parameter(Mandatory = $true)]
-    [String]$CollectionName,
-
-    [Parameter(Mandatory = $true, HelpMessage = 'CUST-RDG1')]
-    [String]$GatewayName,
-
-    [Parameter(Mandatory = $true, HelpMessage = 'C:\temp\f2b531849d3e966c.crt')]
-    [ValidatePattern('.*\.crt$')]
-    [String]$CertificateFullPath,
-
-    [Parameter(Mandatory = $false)]
-    [int32]$DisconnectedSessionLimitMin = '300',
-    [Parameter(Mandatory = $false)]
-    [int32]$IdleSessionLimitMin = '60'
-)#End cmdletbinding
+$DisconnectedSessionLimitMin = '480'
+$IdleSessionLimitMin = '120'
 
 
 Write-Output "The Script will do the Following: `n`
@@ -72,6 +48,80 @@ if ($confirmation -ne 'y') {
 }
 
 Import-Module remotedesktopservices, remotedesktop, servermanager, servermanagertasks, IISAdministration, ActiveDirectory
+
+Function Set-RdPublishedName {
+    #https://gallery.technet.microsoft.com/Change-published-FQDN-for-2a029b80
+    [CmdletBinding()]
+    Param(
+        [Parameter(Mandatory = $True, HelpMessage = "Specifies the FQDN that clients will use when connecting to the deployment.", Position = 1)]
+        [string]$ClientAccessName,
+        [Parameter(Mandatory = $False, HelpMessage = "Specifies the RD Connection Broker server for the deployment.", Position = 2)]
+        [string]$ConnectionBroker = "localhost"
+    )
+
+    $CurrentUser = New-Object Security.Principal.WindowsPrincipal $([Security.Principal.WindowsIdentity]::GetCurrent())
+    If (($CurrentUser.IsInRole([Security.Principal.WindowsBuiltinRole]::Administrator)) -eq $false) {
+        $ArgumentList = "-noprofile -noexit -file `"{0}`" -ClientAccessName $ClientAccessName -ConnectionBroker $ConnectionBroker"
+        Start-Process powershell.exe -Verb RunAs -ArgumentList ($ArgumentList -f ($MyInvocation.MyCommand.Definition))
+        Exit
+    }
+
+    Function Get-RDMSDeployStringProperty ([string]$PropertyName, [string]$BrokerName) {
+        $ret = iwmi -Class "Win32_RDMSDeploymentSettings" -Namespace "root\CIMV2\rdms" -Name "GetStringProperty" `
+            -ArgumentList @($PropertyName) -ComputerName $BrokerName `
+            -Authentication PacketPrivacy -ErrorAction Stop
+        Return $ret.Value
+    }
+
+    Try {
+        If ((Get-RDMSDeployStringProperty "DatabaseConnectionString" $ConnectionBroker) -eq $null) {
+            $BrokerInHAMode = $False
+        }
+        Else {
+            $BrokerInHAMode = $True
+        }
+    }
+    Catch [System.Management.ManagementException] {
+        If ($Error[0].Exception.ErrorCode -eq "InvalidNamespace") {
+            If ($ConnectionBroker -eq "localhost") {
+                Write-Host "`n Set-RDPublishedName Failed.`n`n The local machine does not appear to be a Connection Broker.  Please specify the`n FQDN of the RD Connection Broker using the -ConnectionBroker parameter.`n" -ForegroundColor Red
+            }
+            Else {
+                Write-Host "`n Set-RDPublishedName Failed.`n`n $ConnectionBroker does not appear to be a Connection Broker.  Please make sure you have `n specified the correct FQDN for your RD Connection Broker server.`n" -ForegroundColor Red
+            }
+        }
+        Else {
+            $Error[0]
+        }
+        Exit
+    }
+
+    $OldClientAccessName = Get-RDMSDeployStringProperty "DeploymentRedirectorServer" $ConnectionBroker
+
+    If ($BrokerInHAMode.Value) {
+        Import-Module RemoteDesktop
+        Set-RDClientAccessName -ConnectionBroker $ConnectionBroker -ClientAccessName $ClientAccessName
+    }
+    Else {
+        $return = iwmi -Class "Win32_RDMSDeploymentSettings" -Namespace "root\CIMV2\rdms" -Name "SetStringProperty" `
+            -ArgumentList @("DeploymentRedirectorServer", $ClientAccessName) -ComputerName $ConnectionBroker `
+            -Authentication PacketPrivacy -ErrorAction Stop
+        $wksp = (gwmi -Class "Win32_Workspace" -Namespace "root\CIMV2\TerminalServices" -ComputerName $ConnectionBroker)
+        $wksp.ID = $ClientAccessName
+        $wksp.Put() | Out-Null
+    }
+
+    $CurrentClientAccessName = Get-RDMSDeployStringProperty "DeploymentRedirectorServer" $ConnectionBroker
+
+    If ($CurrentClientAccessName -eq $ClientAccessName) {
+        Write-Host "`n Set-RDPublishedName Succeeded." -ForegroundColor Green
+        Write-Host "`n     Old name:  $OldClientAccessName`n`n     New name:  $CurrentClientAccessName"
+        Write-Host "`n If you are currently logged on to RD Web Access, please refresh the page for the change to take effect.`n"
+    }
+    Else {
+        Write-Host "`n Set-RDPublishedName Failed.`n" -ForegroundColor Red
+    }
+}
 
 #Get the domain name and append it to the RDG
 $DomainName = (Get-WmiObject Win32_ComputerSystem).Domain
@@ -119,10 +169,10 @@ catch {
 #Get RDS Servers in the Farm
 try {
     $CurrentRDSServers = (Get-RDServer -ErrorAction Stop).server
-}#End Try
+}
 catch {
     Write-Output 'No RDS Servers found. This is not an issue if this is a new deployment'
-}#End Catch
+}
 
 #region Add-RDSServersToFarm
 Write-Output "Adding RDS Servers $($RDSServersFQDN) to the farm"
@@ -132,27 +182,27 @@ try {
     foreach ($RdsSrv in $RDSServersFQDN) {
         if ($CurrentRDSServers -match $RdsSrv) {
             Write-Output "Server $($RdsSrv) is already in the farm. It will be skipped."
-        }#End if
+        }
         else {
             Add-RDServer -Server $RdsSrv -Role RDS-RD-SERVER -ConnectionBroker $RdgFQDN -ErrorAction Stop
-        }#End Else
-    }#End foreach
-}#End Try
+        }
+    }
+}
 catch {
     Write-Output "Could not add server $($RDSSrv) to the farm.
             Make sure that the name is spelled correctly
             Make sure the RDG name is correct
             Make sure that the server is not in the farm already"
     Break
-}#End Catch
-#endregion
+}
+#endregion Add-RDSServersToFarm
 
 #region Set-RDSLicensing
 Write-Output "Configuring RD Licensing. $($LicensingServerFQDN) will be the licensing server for the gateway $($RdgFQDN)"
 
 if ($CurrentRDSServers -match $LicensingServerFQDN) {
     Write-Output "Server $($LicensingServerFQDN) is already in the farm. It will be skipped."
-}#End if
+}
 else {
     $AddLicensingServerParams = @{
         'Server'           = $LicensingServerFQDN;
@@ -168,7 +218,7 @@ else {
         Write-Output "Could not add the server $($LicensingServerFQDN) to the farm."
         break
     }
-}#End Else
+}
 
 try {
     $RDLicenseConfigurationParams = @{
@@ -277,10 +327,50 @@ catch {
 #endregion Configure-RDSCertificates
 
 #region Configure-DefaultSiteRedirection
-Set-WebConfiguration system.webServer/httpRedirect "IIS:\sites\Default Web Site" -Value @{enabled = "true"; destination = "https://$RDWebFQDN/rdweb"; exactDestination = "true"; httpResponseStatus = "Permanent" }
+Set-WebConfiguration system.webServer/httpRedirect "IIS:\sites\Default Web Site" -Value @{enabled = "true"; destination = "https://$RDWebFQDN/rdweb"; exactDestination = "true"; httpResponseStatus = "Permanent"; childOnly="true"}
 #endregion Configure-DefaultSiteRedirection
 
 #Region Add-RDGtoGroups
 #This should not be necessary, but it's done just in case the gateway didn't get added to that group
 Add-ADGroupMember -Identity 'RAS and IAS servers' -Members "$($GatewayName)$"
-#region Add-RDGtoGroups
+#endregion Add-RDGtoGroups
+
+#Fix Certificate mismatch
+#Set RD RAP to allow access to all computers
+Set-Item -Path 'RDS:\GatewayServer\RAP\RDG_AllDomainComputers\ComputerGroupType' -Value 2
+Set-RdPublishedName -ClientAccessName $RDWebFQDN
+#Remove All Desktops from RDWeb
+Set-WebConfigurationProperty -PSPath 'IIS:\Sites\Default Web Site\RDweb\Pages' -Filter "/appSettings/add[@key='ShowDesktops']" -Name 'Value' -Value 'false'
+
+#Enable Password Change
+Set-WebConfigurationProperty -PSPath 'IIS:\Sites\Default Web Site\RDweb\Pages' -Filter "/appSettings/add[@key='PasswordChangeEnabled']" -Name 'Value' -Value 'true'
+
+#Enable private mode logins
+((Get-Content -Path 'C:\Windows\Web\RDWeb\Pages\en-US\Default.aspx' -Raw) -replace 'bPrivateMode = false', 'bPrivateMode = true') | Set-Content -Path 'C:\Windows\Web\RDWeb\Pages\en-US\Default.aspx'
+
+#Automatically add DOMAIN to logins
+$ExpressionWithDomain = "
+if ( -1 == strDomainUserName.indexOf(`"\\`") && -1 == strDomainUserName.indexOf(`"@`"))
+{
+objForm.elements[`"DomainUserName`"].value = `"$env:userdomain\\`" + objForm.elements[`"DomainUserName`"].value;
+strDomainUserName = objForm.elements[`"DomainUserName`"].value;
+}"
+
+$DomainJs = Get-Content -Path "C:\Windows\Web\RDWeb\Pages\webscripts-domain.js"
+$DomainJs[40] += $ExpressionWithDomain
+$DomainJs | Set-Content "C:\Windows\Web\RDWeb\Pages\webscripts-domain.js"
+
+#region RdWebClient
+#Only install if OS is Server 2016+
+if ([environment]::OSVersion.Version -gt [version]('{0}.{1}.{2}.{3}' -f '10.0.0.0'.split('.'))) {
+    #Install required modules
+    Set-PSRepository -Name 'PSGallery' -InstallationPolicy Trusted
+    Install-PackageProvider -Name NuGet -Force -Confirm:$False
+    Install-Module –Name PowershellGet -Force -Confirm:$False
+    Install-Module -Name RDWebClientManagement -AcceptLicense -Confirm:$False
+
+    Import-RDWebClientBrokerCert $CertificateFullPath
+    Install-RDWebClientPackage
+    Publish-RDWebClientPackage -Type Production -Latest
+}
+#endregion RdWebClient
