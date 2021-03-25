@@ -3,7 +3,7 @@
 .SYNOPSIS
 This script creates users from a CSV file.
 
-The script first creates the user using paramaters that every user will need. It then uses Set-ADuser to add other paramaters if they exist.
+The script first creates the user using parameters that every user will need. It then uses Set-ADuser to add other parameters if they exist.
 
 .NOTES
 If a user has an apostrophe in their name(O'Brien) the Username will not reflect the apostrophe.
@@ -13,12 +13,12 @@ The CSV should have the following format:
 FirstName,LastName,MiddleName,password,OfficePhone,MobilePhone,Department,Title,Company,State,StreetAddressLine1,StreetAddressLine2,City,PostalCode,AlternateAlias1,AlternateAlias2,CopitrakCode,Extension
 
 .EXAMPLE
-New-ADUsersFromCSV.ps1 -Path C:\Users.csv -DomainName 'customer.com' -OUPath "OU=Users,DC=Domain,DC=com" -FInitialLName
+Create-ADUsersFromCSV.ps1 -CSVPath C:\Users.csv -DomainName 'customer.com' -OUPath "OU=Users,DC=Domain,DC=com" -UserNameFormat FInitialLName
 
 Creates new users from the file Users.csv and specifies the email domain name as customer.com.
 
 .EXAMPLE
-New-ADUsersFromCSV.ps1 -Path C:\Users.csv OUPath "OU=Users,DC=Domain,DC=com" -FName.LName
+Create-ADUsersFromCSV.ps1 -CSVPath C:\Users.csv -OUPath "OU=Users,DC=Domain,DC=com" -UserNameFormat FName.LName
 
 Creates new users from the file Users.csv the script will use the Active Directory Domain name for the email address.
 
@@ -26,7 +26,7 @@ Creates new users from the file Users.csv the script will use the Active Directo
 This is the path of the CSV file
 
 .PARAMETER DomainName
-Enter a paramter here to specify the domain name of the email addresses. If the customer's domain name is .local this parameter should be specified.
+Enter a parameter here to specify the domain name of the email addresses. If the customer's domain name is .local this parameter should be specified.
 
 .PARAMETER OUPath
 The Path of the OU where users will be created  the format is "OU=Users,DC=Domain,DC=com"
@@ -85,36 +85,44 @@ foreach ($User in $UsersCSV) {
     Try {
         Remove-Variable username, EmailAddress, NewADUserParams, SetADUserParams, proxyAddressesParams -ErrorAction ignore
 
+        #Remove unecessary whitespace
         if ($User.MiddleName) {
+            #Select just the middle initial
             $FullName = $user.FirstName.trim() + " " + ( ($User.MiddleName.trim()).substring(0, 1) ).ToUpper() + ". " + $User.LastName.trim()
-        }#End if
+        }
         else {
             $FullName = $user.FirstName.trim() + " " + $User.LastName.trim()
-        }#End Else
+        }
 
-        if ($UserNameFormat -eq 'FInitialLName') {
-            $username = ($User.Firstname).substring(0, 1) + ($User.LastName)
-        }#End if
-        elseif ($UserNameFormat -eq 'FInitial.LName') {
-            $username = ($User.Firstname).substring(0, 1) + '.' + ($User.LastName)
-        }#End Else if
-        elseif ($UserNameFormat -eq 'FNameLname') {
-            $username = $User.Firstname + ($User.LastName)
-        }#End Else if
-        elseif ($UserNameFormat -eq 'FName.LName') {
-            $username = ($User.Firstname) + '.' + ($User.LastName)
-        }#End Else if
-        elseif ($UserNameFormat -eq 'FInitialMinitialLInitial') {
-            if ($User.MiddleName) {
-                $username = ( ($User.Firstname).substring(0, 1) + ($User.MiddleName).substring(0, 1) + ($User.LastName).substring(0, 1) ).ToUpper()
-            }#End if
-            else {
-                $username = ( ($User.Firstname).substring(0, 1) + ($User.LastName).substring(0, 1) ).ToUpper()
-            }#End Else
-        }#End Else if
+        Switch ($UserNameFormat) {
+            #Remove everything except letters, numbers, hyphens, and underscores from the username
+            'FInitialLName' {
+                $username = ($User.Firstname -Replace "[^\w-]", "").substring(0, 1) + ($User.LastName -Replace "[^\w-]", "")
+            }
+            'FInitial.LName' {
+                $username = ($User.Firstname -Replace "[^\w-]", "").substring(0, 1) + '.' + ($User.LastName -Replace "[^\w-]", "")
+            }
+            'FNameLname' {
+                $username = ($User.Firstname -Replace "[^\w-]", "") + ($User.LastName -Replace "[^\w-]", "")
+            }
+            'FName.LName' {
+                $username = ($User.Firstname -Replace "[^\w-]", "") + '.' + ($User.LastName -Replace "[^\w-]", "")
+            }
+            'FInitialMinitialLInitial' {
+                if ($User.MiddleName) {
+                    $username = ( ($User.Firstname -Replace "[^\w-]", "").substring(0, 1) + ($User.MiddleName -Replace "[^\w-]", "").substring(0, 1) + ($User.LastName -Replace "[^\w-]", "").substring(0, 1) ).ToUpper()
+                }
+                else {
+                    $username = ( ($User.Firstname -Replace "[^\w-]", "").substring(0, 1) + ($User.LastName -Replace "[^\w-]", "").substring(0, 1) ).ToUpper()
+                }
+            }
+        }
 
-        #Remove everything except letters, numbers, hiphens, and underscores from the username
-        $username = $username -Replace "[^\w-]", ""
+        #Shorten the username if it is too long
+        if (($username.ToCharArray()).count -gt 20) {
+            Write-Output "User $($username) has a username longer than 20 chars. SamAccountName will be shortened"
+            $username = ($username.ToCharArray() | Select-Object -first 20) -join ''
+        }
 
         $EmailAddress = $Username + '@' + $DomainName
 
@@ -122,6 +130,7 @@ foreach ($User in $UsersCSV) {
             'GivenName'         = $User.FirstName.trim();
             'AccountPassword'   = ConvertTo-SecureString -string  $User.password -AsPlainText -force;
             'Name'              = $FullName;
+            #Limit the SamAccountName to 20 chars
             'SamAccountName'    = $username;
             'UserPrincipalName' = $EmailAddress;
             'EmailAddress'      = $EmailAddress;
@@ -141,62 +150,66 @@ foreach ($User in $UsersCSV) {
 
         $SetADUserParams = @{
             'Identity' = $username;
-        }#End SetADUserParams
+        }
 
-        if ($User.MiddleName) {
-            $SetADUserParams += @{'Initials' = ($User.MiddleName).substring(0, 1) }
-        }#End if
-
-        if ($User.OfficePhone) {
-            $SetADUserParams += @{
-                'OfficePhone' = $User.OfficePhone;
-                'HomePhone'   = $User.OfficePhone
-            }#End NewADUserParams
-        }#End if
-
-        if ($User.Department) {
-            $SetADUserParams += @{'Department' = $User.Department }
-        }#End if
-
-        if ($user.Title) {
-            $SetADUserParams += @{'Title' = $User.Title }
-        }#End if
-
-        if ($user.Company) {
-            $SetADUserParams += @{'Company' = $User.Company }
-        }#End if
-
-        if ($User.State) {
-            $SetADUserParams += @{'State' = $User.State }
-        }#End if
-        if ($user.StreetAddressLine2) {
-            $SetADUserParams += @{'StreetAddress' = $User.StreetAddressLine1 + "`r`n" + $User.StreetAddressLine2 }
-        }#End if
-        elseif ($user.StreetAddressLine1) {
-            $SetADUserParams += @{'StreetAddress' = $User.StreetAddressLine1 }
-        }#End Elseif
-        if ($User.City) {
-            $SetADUserParams += @{'City' = $User.City }
-        }#End if
-        if ($User.PostalCode) {
-            $SetADUserParams += @{'PostalCode' = $User.PostalCode }
-        }#End if
-        if ($user.MobilePhone) {
-            $SetADUserParams += @{'MobilePhone' = $User.MobilePhone }
-        }#End if
-
+        #params that need to be added through the "Add" parameter
         $AddParams = @{
             'mailNickName'        = $username;
             'msExchUsageLocation' = "US";
             'proxyaddresses'      = ('SMTP:' + "$EmailAddress")
         }
 
-        if ($User.Extension) {
-            $Addparams += @{'ipPhone' = $User.Extension }
+        #Add all applicable SetAdUserParams if they exist
+        switch ($user) {
+            { $_.MiddleName } {
+                $SetADUserParams += @{'Initials' = ($User.MiddleName).substring(0, 1) }
+            }
+            { $_.OfficePhone } {
+                $SetADUserParams += @{
+                    'OfficePhone' = $User.OfficePhone;
+                    'HomePhone'   = $User.OfficePhone
+                }
+            }
+            { $_.Department } {
+                $SetADUserParams += @{'Department' = $User.Department }
+            }
+            { $_.Title } {
+                $SetADUserParams += @{'Title' = $User.Title }
+            }
+            { $_.Company } {
+                $SetADUserParams += @{'Company' = $User.Company }
+            }
+            { $_.State } {
+                $SetADUserParams += @{'State' = $User.State }
+            }
+            { $_.City } {
+                $SetADUserParams += @{'City' = $User.City }
+            }
+            { $_.PostalCode } {
+                $SetADUserParams += @{'PostalCode' = $User.PostalCode }
+            }
+            { $_.MobilePhone } {
+                $SetADUserParams += @{'MobilePhone' = $User.MobilePhone }
+            }
+            { $_.Description } {
+                $SetADUserParams += @{'Description' = $User.Description }
+            }
+
+            #Below are params that need to be added manually though the "Add" parameter
+            { $_.Extension } {
+                $Addparams += @{'ipPhone' = $User.Extension }
+            }
+            { $_.CopitrakCode } {
+                $Addparams += @{'Pager' = $User.CopitrakCode }
+            }
+        }
+
+        if ($user.StreetAddressLine2) {
+            $SetADUserParams += @{'StreetAddress' = $User.StreetAddressLine1 + "`r`n" + $User.StreetAddressLine2 }
         }#End if
-        if ($User.CopitrakCode) {
-            $Addparams += @{'Pager' = $User.CopitrakCode }
-        }#End if
+        elseif ($user.StreetAddressLine1) {
+            $SetADUserParams += @{'StreetAddress' = $User.StreetAddressLine1 }
+        }#End Elseif
 
         $SetADUserParams += @{'Add' = $AddParams }
 
@@ -232,7 +245,7 @@ foreach ($User in $UsersCSV) {
     }#End Catch[Microsoft.ActiveDirectory.Management.ADIdentityAlreadyExistsException]
 
     catch {
-        Write-Output "Unkown error creating User $($FullName)"
+        Write-Output "Unknown error creating User $($FullName)"
         Write-Output $_
     }#End Catch
 }#End ForEach
