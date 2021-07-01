@@ -15,9 +15,6 @@ Foreach ($Path in $VHDXPaths){
     $AllUPDs = Get-ChildItem $Path -Recurse -Filter *.vhdx | Where-Object {$VHDXExclusions -NotContains $_.name} | Select-Object -ExpandProperty fullname
 
     foreach ($UPD in $AllUPDs){
-        NEW-ITEM -Name compact.txt -ItemType file -force | OUT-NULL
-        ADD-CONTENT -Path compact.txt "select vdisk file= $UPD"
-        ADD-CONTENT -Path compact.txt "compact vdisk"
-        DISKPART /S compact.TXT
+        Write-Output "select vdisk file= $UPD" "compact vdisk" | DISKPART
     }
 }
