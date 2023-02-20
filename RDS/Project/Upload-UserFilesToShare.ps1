@@ -90,6 +90,7 @@ $LocationsToCopy = @(
     'AppData\Roaming\Microsoft\Templates',
     'AppData\Roaming\Mozilla\Firefox',
     'AppData\Roaming\Microsoft\Proof',
+    'AppData\Roaming\NAPS2',
     'AppData\Roaming\Microsoft\UProof',
     'AppData\Roaming\Microsoft\Office',
     'AppData\Roaming\Microsoft\Outlook',
