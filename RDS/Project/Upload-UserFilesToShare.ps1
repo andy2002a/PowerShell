@@ -84,6 +84,7 @@ $LocationsToCopy = @(
     #'Videos',
     '.vscode',
     'AppData\Local\Google\Chrome\User Data',
+    'AppData\Local\Microsoft\Edge\User Data',
     'AppData\Local\Microsoft\office',
     'AppData\Roaming\Microsoft\Signatures',
     'AppData\Roaming\Microsoft\Templates',
