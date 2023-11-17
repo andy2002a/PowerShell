@@ -109,7 +109,7 @@ $LocationsToCopy = @(
     'AppData\Roaming\Philips Speech',
     'AppData\Roaming\CADzation',
     'AppData\Roaming\Greenshot',
-    'AppData\Roaming\Nuance'
+    'AppData\Roaming\Nuance',
     'AppData\Roaming\Intuit',
     'AppData\Roaming\PowerShell Pro Tools',
     'AppData\Roaming\IrfanView',
