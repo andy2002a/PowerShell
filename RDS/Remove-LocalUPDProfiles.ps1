@@ -2,7 +2,7 @@
 
 This script deletes local profile data on an RDS server that has UPDs or FSL Profiles. When UPDs are enabled user files will sometimes be left behind. This can cause some unexpected results with applications.
 
-The script has a failsafe that does not run if UPDs or FSL Profiles become disabled at any point.
+The script has a fail safe that does not run if UPDs or FSL Profiles become disabled at any point.
 
 Andy Morales
 #>
@@ -138,6 +138,8 @@ $CommandToExecute = @()
 #The basic command
 $CommandToExecute += 'C:\BIN\DelProf2\DelProf2.exe /u'
 
+$diskSolutionRunning = $False
+
 #UPDs
 if (Test-RegistryValue -Path 'Registry::HKEY_LOCAL_MACHINE\SYSTEM\ControlSet001\Control\Terminal Server\ClusterSettings' -Name UvhdEnabled -Value 1) {
     #UvhdCleanupBin is also excluded since it is unknown what deleting it will do
@@ -145,6 +147,8 @@ if (Test-RegistryValue -Path 'Registry::HKEY_LOCAL_MACHINE\SYSTEM\ControlSet001\
 
     #Exclude logged in users
     $CommandToExecute += "/ed:$((Get-RDSActiveSessions).username -join ' /ed:')"
+    
+    $diskSolutionRunning = $True
 }
 
 #FSL Profiles
@@ -154,6 +158,20 @@ if (Test-RegistryValue -Path 'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\FSLogix\Prof
 
     #Exclude local_ folder of logged in users
     $CommandToExecute += "/ed:local_$((Get-RDSActiveSessions).username -join ' /ed:Local_')"
+    
+    $diskSolutionRunning = $True
 }
 
-Invoke-Expression -Command ($CommandToExecute -join ' ')
+if($diskSolutionRunning){
+    $profilesToExclude = @(
+        '.NET*',
+        'DefaultAppPool*'
+    )
+    
+    $CommandToExecute += "/ed:$($profilesToExclude -join ' /ed:')"
+    
+    Invoke-Expression -Command ($CommandToExecute -join ' ')
+}
+else{
+    Write-Output "No disk profile application found"
+}
